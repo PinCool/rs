@@ -49,6 +49,19 @@ const SCORE = {
 };
 const ART_IDS = ["kv_a", "kv_b", "kv_c", "kv_d"];
 
+// **公開の期限。ここ 1 か所で決まる**（2026-09-15 ユーザー指示「保存期間をグローバルで決めれる？
+// 保存期間は 9/22 までにしたい」）。この日時を過ぎたら**下地を読みに行かない** ——
+// 画像が 170KB あるので、読まないだけで転送量がほぼゼロになり、リンクが広まっても
+// GitHub Pages の枠を食わない。判定は端末の時計なので厳密ではないが、迂回する人は出ない。
+// **止めるときは空文字にする**（期限なしに戻る）。
+const OPEN_UNTIL = "2026-09-22T23:59:59+09:00";
+
+function isClosed() {
+  if (!OPEN_UNTIL) return false;
+  const until = Date.parse(OPEN_UNTIL);
+  return Number.isFinite(until) && Date.now() > until;
+}
+
 const params = new URLSearchParams(location.search);
 const score = Math.max(0, Math.min(99999999, parseInt(params.get("sc") ?? "0", 10) || 0));
 const artId = ART_IDS.includes(params.get("kv")) ? params.get("kv") : ART_IDS[0];
@@ -125,12 +138,22 @@ function fail(message) {
   hint.textContent = message;
 }
 
+function start() {
+
 const art = new Image();
 art.onload = () => {
   // 書体が届く前に描くと既定の字で焼けてしまう。
   const ready = document.fonts ? document.fonts.load(`${SCORE.fontSize}px "Dela Gothic One"`) : Promise.resolve();
   ready.catch(() => {}).then(() => draw(art));
 };
+function closed(value) {
+  document.getElementById("card").remove();
+  document.getElementById("save").remove();
+  const hint = document.getElementById("hint");
+  hint.className = "error";
+  hint.textContent = `画像の配布は終了しました。（SCORE ${value.toLocaleString("en-US")}）`;
+}
+
 // 下地は WebP（PNG の 8 分の 1）。会場のモバイル回線でも一瞬で出るのが狙いで、
 // **読めなかったときだけ** PNG へ落ちる（古い端末の保険。PNG も置いたままにしてある）。
 let triedPng = false;
@@ -143,6 +166,15 @@ art.onerror = () => {
   fail("カードの下地を読み込めませんでした。");
 };
 art.src = `${artId}.webp`;
+
+}
+
+if (isClosed()) {
+  // 期限切れ。**スコアだけは字で残す**（リンクが壊れたようには見せない）。
+  closed(score);
+} else {
+  start();
+}
 </script>
 </body>
 </html>
