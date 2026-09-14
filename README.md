@@ -15,8 +15,12 @@ https://pincool.github.io/rs/?v=1&sc=2128&kv=kv_c
 
 ## 置き方
 
-`site/` の中身だけが公開される。**push すると GitHub Actions が出す**
-（`.github/workflows/pages.yml`。Settings → Pages → Source は「GitHub Actions」）。
+`docs/` の中身だけが公開される（Settings → Pages → Source は「Deploy from a branch」の `main` / `/docs`）。
+push すれば数十秒で反映される。
+
+**GitHub Actions で出す形にも切り替えられる** —— `.github/workflows/pages.yml` を置いて
+Source を「GitHub Actions」にするだけ（`upload-pages-artifact` の `path` をこのフォルダに向ける）。
+新しく作るならそちらが素直で、理由は本体リポジトリの `Docs/ShareQrPrompt.md` に書いてある。
 
 版面（数字の位置・大きさ・縁・影）は**ゲーム側の `Game/UI/ShareCard` と 1 対 1**。
 片方を動かしたら両方直すこと。作り方の全体は本体リポジトリの `Docs/ShareQrPrompt.md`。
