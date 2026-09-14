@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROPPONGI SURVIVOR — SCORE</title>
+<meta property="og:title" content="ROPPONGI SURVIVOR">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 20px 16px;
+    background: #0C2240; color: #F2F6E4;
+    font-family: "M PLUS Rounded 1c", system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  }
+  #card { width: 100%; max-width: 960px; height: auto; display: block; border-radius: 6px; }
+  .hint { font-size: 14px; opacity: .75; text-align: center; line-height: 1.7; }
+  .save {
+    display: inline-block; padding: 12px 26px; border-radius: 999px;
+    background: #FF3D95; color: #FFF6FB; font-weight: 700; text-decoration: none;
+  }
+  .error { font-size: 15px; opacity: .85; text-align: center; }
+</style>
+</head>
+<body>
+  <img id="card" alt="ROPPONGI SURVIVOR のスコアカード">
+  <a id="save" class="save" download="roppongi_survivor_score.png" hidden>画像を保存</a>
+  <p class="hint" id="hint">画像を長押ししても保存できます。</p>
+
+<script>
+// ゲーム側の版面（Assets/_Project/Scripts/Game/UI/ShareCard.cs）と 1 対 1。
+// 片方を動かしたら両方直すこと —— 数字の置き場所は焼いたカードの画素から測った値。
+const CARD = { width: 1920, height: 1160 };
+const SCORE = {
+  centerX: 600,      // ShareCard の BlockLeft 150 + BlockWidth 900 / 2
+  baselineY: 912,    // 数字の下端（カンマは 17px 下へ出る）
+  fontSize: 150,     // デラゴシック
+  fill: "#FAFD84",   // ロゴと同じ黄
+  outline: "#F058D8",// ロゴと同じ桃
+  outlineWidth: 9,   // 字の外側へ出る太さ（canvas は中心線なので 2 倍で引く）
+  shadow: "#2B4BC9", // サブタイトルと同じ濃い青
+  shadowOffsetY: 10,
+};
+const ART_IDS = ["kv_a", "kv_b", "kv_c", "kv_d"];
+
+const params = new URLSearchParams(location.search);
+const score = Math.max(0, Math.min(99999999, parseInt(params.get("sc") ?? "0", 10) || 0));
+const artId = ART_IDS.includes(params.get("kv")) ? params.get("kv") : ART_IDS[0];
+
+function draw(art) {
+  const canvas = document.createElement("canvas");
+  canvas.width = CARD.width;
+  canvas.height = CARD.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(art, 0, 0, CARD.width, CARD.height);
+
+  const text = score.toLocaleString("en-US");
+  ctx.font = `${SCORE.fontSize}px "Dela Gothic One"`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.lineJoin = "round";
+  ctx.miterLimit = 2;
+
+  // 影 → 縁 → 塗り の順。影は「縁つきの字」の写しを下へずらしたもの（ゲーム側と同じ）。
+  ctx.lineWidth = SCORE.outlineWidth * 2;
+  ctx.strokeStyle = SCORE.shadow;
+  ctx.fillStyle = SCORE.shadow;
+  ctx.strokeText(text, SCORE.centerX, SCORE.baselineY + SCORE.shadowOffsetY);
+  ctx.fillText(text, SCORE.centerX, SCORE.baselineY + SCORE.shadowOffsetY);
+
+  ctx.strokeStyle = SCORE.outline;
+  ctx.strokeText(text, SCORE.centerX, SCORE.baselineY);
+  ctx.fillStyle = SCORE.fill;
+  ctx.fillText(text, SCORE.centerX, SCORE.baselineY);
+
+  publish(canvas);
+}
+
+// **iOS では `<a download>` が効かない**（Safari はダウンロードを始めず、同じ絵を開くだけ）。
+// 使えるなら共有シート（Web Share API のファイル共有）に回す —— そこから「写真に保存」できる。
+// 貼る絵も data: ではなく blob: にしておく（長押しの「写真に追加」がこちらの方が通る）。
+function publish(canvas) {
+  const card = document.getElementById("card");
+  const save = document.getElementById("save");
+  const hint = document.getElementById("hint");
+
+  const show = (blob, url) => {
+    card.src = url;
+    save.hidden = false;
+
+    const file = blob && window.File ? new File([blob], "roppongi_survivor_score.png", { type: "image/png" }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      save.textContent = "画像を保存・共有";
+      save.removeAttribute("download");
+      save.href = "#";
+      save.addEventListener("click", event => {
+        event.preventDefault();
+        navigator.share({ files: [file] }).catch(() => {});
+      });
+      hint.textContent = "「写真に保存」を選んでください。画像の長押しでも保存できます。";
+      return;
+    }
+
+    save.href = url;
+  };
+
+  if (canvas.toBlob) {
+    canvas.toBlob(blob => show(blob, blob ? URL.createObjectURL(blob) : canvas.toDataURL("image/png")), "image/png");
+  } else {
+    show(null, canvas.toDataURL("image/png"));
+  }
+}
+
+function fail(message) {
+  document.getElementById("card").remove();
+  document.getElementById("save").remove();
+  const hint = document.getElementById("hint");
+  hint.className = "error";
+  hint.textContent = message;
+}
+
+const art = new Image();
+art.onload = () => {
+  // 書体が届く前に描くと既定の字で焼けてしまう。
+  const ready = document.fonts ? document.fonts.load(`${SCORE.fontSize}px "Dela Gothic One"`) : Promise.resolve();
+  ready.catch(() => {}).then(() => draw(art));
+};
+art.onerror = () => fail("カードの下地を読み込めませんでした。");
+art.src = `${artId}.png`;
+</script>
+</body>
+</html>
