@@ -6,6 +6,8 @@
 <title>ROPPONGI SURVIVOR — SCORE</title>
 <meta property="og:title" content="ROPPONGI SURVIVOR">
 <meta property="og:type" content="website">
+<!-- 既定の favicon を取りに行かせない（会場では 1 リクエストでも減らす）。 -->
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@700&display=swap" rel="stylesheet">
@@ -129,8 +131,18 @@ art.onload = () => {
   const ready = document.fonts ? document.fonts.load(`${SCORE.fontSize}px "Dela Gothic One"`) : Promise.resolve();
   ready.catch(() => {}).then(() => draw(art));
 };
-art.onerror = () => fail("カードの下地を読み込めませんでした。");
-art.src = `${artId}.png`;
+// 下地は WebP（PNG の 8 分の 1）。会場のモバイル回線でも一瞬で出るのが狙いで、
+// **読めなかったときだけ** PNG へ落ちる（古い端末の保険。PNG も置いたままにしてある）。
+let triedPng = false;
+art.onerror = () => {
+  if (!triedPng) {
+    triedPng = true;
+    art.src = `${artId}.png`;
+    return;
+  }
+  fail("カードの下地を読み込めませんでした。");
+};
+art.src = `${artId}.webp`;
 </script>
 </body>
 </html>
